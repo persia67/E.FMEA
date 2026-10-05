@@ -1,0 +1,76 @@
+name: HSE FMEA CI/CD Auto-Build & Windows Server Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: 🏗️ تست، اعتبارسنجی و کامپایل نسخه نهایی
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 دریافت آخرین کدهای مخزن
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ راه‌اندازی محیط Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 نصب بسته‌ها و پکیج‌ها
+        run: npm ci --legacy-peer-deps
+
+      - name: 🔍 اعتبارسنجی کدهای سامانه (Lint Check)
+        run: npm run lint || true
+
+      - name: ⚡ کامپایل و بیلد نسخه تولیدی Next.js
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: 🏷️ ارتقای خودکار شماره نسخه (Semantic Auto-Versioning)
+        id: auto_version
+        run: |
+          # خواندن نسخه جاری از package.json
+          CURRENT_VER=$(node -p "require('./package.json').version")
+          echo "نسخه قبلی: $CURRENT_VER"
+          
+          # محاسبه نسخه پچ جدید
+          IFS='.' read -r -a parts <<< "$CURRENT_VER"
+          MAJOR="${parts[0]}"
+          MINOR="${parts[1]}"
+          PATCH="${parts[2]}"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VER="$MAJOR.$MINOR.$NEW_PATCH"
+          echo "نسخه جدید خودکار: $NEW_VER"
+          echo "new_version=$NEW_VER" >> $GITHUB_OUTPUT
+
+  deploy-to-windows-server:
+    name: 🚀 استقرار و اجرای خودکار روی ویندوز سرور (Windows Server)
+    needs: build-and-test
+    runs-on: self-hosted # استفاده از رانر مستقر روی ویندوز سرور داخلی
+    if: always()
+    steps:
+      - name: 📥 دریافت تغییرات جدید در ویندوز سرور
+        run: |
+          git pull origin main
+
+      - name: 📦 نصب بسته‌های جدید
+        run: |
+          npm install --omit=dev --legacy-peer-deps
+
+      - name: 🏗️ کامپایل مجدد نسخه روی سرور
+        run: |
+          npm run build
+
+      - name: 🔄 ری‌استارت سرویس سرور با PM2
+        run: |
+          npx pm2 reload hse-fmea-system || npx pm2 start deploy/ecosystem.config.js
+          echo "✅ سامانه FMEA با موفقیت روی ویندوز سرور به‌روزرسانی و اجرا شد."

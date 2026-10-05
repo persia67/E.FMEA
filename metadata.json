@@ -1,0 +1,6 @@
+{
+  "name": "سامانه هوشمند ارزیابی ریسک و FMEA ایمنی صنعتی (HSE RiskPro)",
+  "description": "سیستم جامع ارزیابی ریسک FMEA، امتیازدهی هوشمند با هوش مصنوعی، ثبت اقدامات اصلاحی (CAPA)، گزارش‌های دوره‌ای، سطوح دسترسی و هشدارهای خودکار ریسک‌های بحرانی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
